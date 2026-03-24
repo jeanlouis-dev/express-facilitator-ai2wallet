@@ -8,6 +8,7 @@ import {
 import { createHederaSigner, registerExactHederaScheme } from "ai2wallet-sdk/facilitator";
 import dotenv from "dotenv";
 import express from "express";
+import cors from "cors";
 
 dotenv.config();
 
@@ -63,6 +64,13 @@ const facilitator = new x402Facilitator()
 // Initialize Express app
 const app = express();
 app.use(express.json());
+app.use(
+  cors({
+    origin: '*',
+    allowedHeaders: ["*"],
+    exposedHeaders: ['*']
+  })
+);
 
 /**
  * POST /verify
