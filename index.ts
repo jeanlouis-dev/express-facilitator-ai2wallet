@@ -1,3 +1,9 @@
+import dotenv from "dotenv";
+import express from "express";
+import cors from "cors";
+import { createWalletClient, http, publicActions } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { baseSepolia } from "viem/chains";
 import { base58 } from "@scure/base";
 import { createKeyPairSignerFromBytes } from "@solana/kit";
 import { x402Facilitator } from "@x402/core/facilitator";
@@ -12,11 +18,7 @@ import { registerExactEvmScheme } from "@x402/evm/exact/facilitator";
 import { toFacilitatorSvmSigner } from "@x402/svm";
 import { registerExactSvmScheme } from "@x402/svm/exact/facilitator";
 import { createHederaSigner, registerExactHederaScheme } from "ai2wallet-sdk/facilitator";
-import dotenv from "dotenv";
-import express from "express";
-import { createWalletClient, http, publicActions } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+
 
 dotenv.config();
 
@@ -159,6 +161,13 @@ registerExactEvmScheme(facilitator, {
 // Initialize Express app
 const app = express();
 app.use(express.json());
+app.use(
+  cors({
+    origin: '*',
+    allowedHeaders: ["*"],
+    exposedHeaders: ['*']
+  })
+);
 
 /**
  * POST /verify
