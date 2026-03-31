@@ -12,11 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@x402/core": "^2.2.0",
-    "@x402/evm": "^2.2.0",
-    "@x402/extensions": "^2.2.0",
-    "@x402/svm": "^2.3.0",
-    "ai2wallet-sdk": "^0.0.2",
+    "@solana/kit": "^6.5.0",
+    "ai2wallet-sdk": "^0.0.3",
     "cors": "^2.8.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

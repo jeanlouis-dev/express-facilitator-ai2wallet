@@ -1,60 +1,38 @@
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
-import { createWalletClient, http, publicActions } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
 import { base58 } from "@scure/base";
 import { createKeyPairSignerFromBytes } from "@solana/kit";
-import { x402Facilitator } from "@x402/core/facilitator";
 import {
   PaymentPayload,
   PaymentRequirements,
   SettleResponse,
   VerifyResponse,
-} from "@x402/core/types";
-import { toFacilitatorEvmSigner } from "@x402/evm";
-import { registerExactEvmScheme } from "@x402/evm/exact/facilitator";
-import { toFacilitatorSvmSigner } from "@x402/svm";
-import { registerExactSvmScheme } from "@x402/svm/exact/facilitator";
-import { createHederaSigner, registerExactHederaScheme } from "ai2wallet-sdk/facilitator";
-
+  x402Facilitator,
+  createX402Facilitator
+} from "ai2wallet-sdk/facilitator";
 
 dotenv.config();
 
 // Configuration
 const PORT = process.env.PORT || "4022";
-const EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY || "";
-const SVM_PRIVATE_KEY = process.env.SVM_PRIVATE_KEY || "";
-const HEDERA_PRIVATE_KEY = process.env.HEDERA_PRIVATE_KEY || "";
-const HEDERA_ACCOUNT_ID = process.env.HEDERA_ACCOUNT_ID || "";
 
-// Validate required environment variables
-// if (!process.env.EVM_PRIVATE_KEY) {
-//   console.error("❌ EVM_PRIVATE_KEY environment variable is required");
-//   process.exit(1);
-// }
-
-// if (!process.env.SVM_PRIVATE_KEY) {
-//   console.error("❌ SVM_PRIVATE_KEY environment variable is required");
-//   process.exit(1);
-// }
-
-if (!process.env.HEDERA_PRIVATE_KEY) {
-  console.error("❌ HEDERA_PRIVATE_KEY environment variable is required");
+//Validate required environment variables
+if (!process.env.EVM_PRIVATE_KEY) {
+  console.error("❌ EVM_PRIVATE_KEY environment variable is required");
   process.exit(1);
 }
 
-// Validate Hedera configuration
-if (process.env.HEDERA_PRIVATE_KEY && !process.env.HEDERA_ACCOUNT_ID) {
-  console.error("HEDERA_ACCOUNT_ID is required when HEDERA_PRIVATE_KEY is provided");
+if (!process.env.SVM_PRIVATE_KEY) {
+  console.error("❌ SVM_PRIVATE_KEY environment variable is required");
   process.exit(1);
 }
 
 // Initialize the EVM account from private key
 const evmAccount = privateKeyToAccount(
   process.env.EVM_PRIVATE_KEY as `0x${string}`,
-);
+) as any;
 console.info(`EVM Facilitator account: ${evmAccount.address}`);
 
 // Initialize the SVM account from private key
@@ -62,100 +40,6 @@ console.info(`EVM Facilitator account: ${evmAccount.address}`);
 //   base58.decode(process.env.SVM_PRIVATE_KEY as string),
 // );
 // console.info(`SVM Facilitator account: ${svmAccount.address}`);
-
-// Create a Viem client with both wallet and public capabilities
-const viemClient = createWalletClient({
-  account: evmAccount,
-  chain: baseSepolia,
-  transport: http(),
-}).extend(publicActions);
-
-// Initialize the x402 Facilitator with EVM and SVM support
-
-const evmSigner = toFacilitatorEvmSigner({
-  getCode: (args: { address: `0x${string}` }) => viemClient.getCode(args),
-  address: evmAccount.address,
-  readContract: (args: {
-    address: `0x${string}`;
-    abi: readonly unknown[];
-    functionName: string;
-    args?: readonly unknown[];
-  }) =>
-    viemClient.readContract({
-      ...args,
-      args: args.args || [],
-    }),
-  verifyTypedData: (args: {
-    address: `0x${string}`;
-    domain: Record<string, unknown>;
-    types: Record<string, unknown>;
-    primaryType: string;
-    message: Record<string, unknown>;
-    signature: `0x${string}`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) => viemClient.verifyTypedData(args as any),
-  writeContract: (args: {
-    address: `0x${string}`;
-    abi: readonly unknown[];
-    functionName: string;
-    args: readonly unknown[];
-  }) =>
-    viemClient.writeContract({
-      ...args,
-      args: args.args || [],
-    }),
-  sendTransaction: (args: { to: `0x${string}`; data: `0x${string}` }) =>
-    viemClient.sendTransaction(args),
-  waitForTransactionReceipt: (args: { hash: `0x${string}` }) =>
-    viemClient.waitForTransactionReceipt(args),
-});
-
-// Facilitator can now handle all Solana networks with automatic RPC creation
-//const svmSigner = toFacilitatorSvmSigner(svmAccount);
-
-const facilitator = new x402Facilitator()
-  .onBeforeVerify(async (context) => {
-    console.log("Before verify", context);
-  })
-  .onAfterVerify(async (context) => {
-    console.log("After verify", context);
-  })
-  .onVerifyFailure(async (context) => {
-    console.log("Verify failure", context);
-  })
-  .onBeforeSettle(async (context) => {
-    console.log("Before settle", context);
-  })
-  .onAfterSettle(async (context) => {
-    console.log("After settle", context);
-  })
-  .onSettleFailure(async (context) => {
-    console.log("Settle failure", context);
-  });
-
-// Register EVM and SVM schemes using the new register helpers
-registerExactEvmScheme(facilitator, {
-  signer: evmSigner,
-  networks: "eip155:84532", // Base Sepolia
-  deployERC4337WithEIP6492: true,
-});
-// registerExactSvmScheme(facilitator, {
-//   signer: svmSigner,
-//   networks: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1", // Devnet
-// });
-
-(async () => {
-  const hederaSigner = await createHederaSigner("hedera:testnet", HEDERA_PRIVATE_KEY, {
-    accountId: HEDERA_ACCOUNT_ID,
-  });
-
-  console.info(`Hedera Facilitator account: ${hederaSigner.accountId}`);
-
-  registerExactHederaScheme(facilitator as any, {
-    signer: hederaSigner,
-    networks: "hedera:testnet",
-  })
-})()
 
 
 // Initialize Express app
@@ -187,7 +71,7 @@ app.post("/verify", async (req, res) => {
         error: "Missing paymentPayload or paymentRequirements",
       });
     }
-
+    let facilitator: x402Facilitator = createX402Facilitator([paymentRequirements.network], evmAccount);
     // Hooks will automatically:
     // - Track verified payment (onAfterVerify)
     // - Extract and catalog discovery info (onAfterVerify)
@@ -220,7 +104,7 @@ app.post("/settle", async (req, res) => {
         error: "Missing paymentPayload or paymentRequirements",
       });
     }
-
+    let facilitator: x402Facilitator = createX402Facilitator([paymentRequirements.network], evmAccount);
     // Hooks will automatically:
     // - Validate payment was verified (onBeforeSettle - will abort if not)
     // - Check verification timeout (onBeforeSettle)
@@ -259,7 +143,8 @@ app.post("/settle", async (req, res) => {
  */
 app.get("/supported", async (req, res) => {
   try {
-    const response = facilitator.getSupported();    
+    let facilitator: x402Facilitator = createX402Facilitator(["eip155:84532", "eip155:1328", "eip155:80002"], evmAccount);
+    const response = facilitator.getSupported();
     res.json(response);
   } catch (error) {
     console.error("Supported error:", error);
