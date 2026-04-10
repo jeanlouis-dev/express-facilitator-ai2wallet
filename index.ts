@@ -10,7 +10,8 @@ import {
   SettleResponse,
   VerifyResponse,
   x402Facilitator,
-  createX402Facilitator
+  createX402Facilitator,
+  createEd25519Signer
 } from "ai2wallet-sdk/facilitator";
 
 dotenv.config();
@@ -29,6 +30,11 @@ if (!process.env.SVM_PRIVATE_KEY) {
   process.exit(1);
 }
 
+if (!process.env.STELLAR_PRIVATE_KEY) {
+  console.error("❌ STELLAR_PRIVATE_KEY environment variable is required");
+  process.exit(1);
+}
+
 // Initialize the EVM account from private key
 const evmAccount = privateKeyToAccount(
   process.env.EVM_PRIVATE_KEY as `0x${string}`,
@@ -41,6 +47,11 @@ console.info(`EVM Facilitator account: ${evmAccount.address}`);
 // );
 // console.info(`SVM Facilitator account: ${svmAccount.address}`);
 
+// Initialize the Stellar account from private key
+ const stellarAccount = createEd25519Signer(process.env.STELLAR_PRIVATE_KEY);
+ console.info(`STELLAR Facilitator account: ${stellarAccount.address}`);
+
+ const facilitatorSigners = { evmAccount, stellarAccount };
 
 // Initialize Express app
 const app = express();
@@ -71,7 +82,8 @@ app.post("/verify", async (req, res) => {
         error: "Missing paymentPayload or paymentRequirements",
       });
     }
-    let facilitator: x402Facilitator = createX402Facilitator([paymentRequirements.network], evmAccount);
+ 
+    let facilitator: x402Facilitator = createX402Facilitator([paymentRequirements.network], facilitatorSigners);
     // Hooks will automatically:
     // - Track verified payment (onAfterVerify)
     // - Extract and catalog discovery info (onAfterVerify)
@@ -104,7 +116,7 @@ app.post("/settle", async (req, res) => {
         error: "Missing paymentPayload or paymentRequirements",
       });
     }
-    let facilitator: x402Facilitator = createX402Facilitator([paymentRequirements.network], evmAccount);
+    let facilitator: x402Facilitator = createX402Facilitator([paymentRequirements.network], facilitatorSigners);
     // Hooks will automatically:
     // - Validate payment was verified (onBeforeSettle - will abort if not)
     // - Check verification timeout (onBeforeSettle)
@@ -143,7 +155,12 @@ app.post("/settle", async (req, res) => {
  */
 app.get("/supported", async (req, res) => {
   try {
-    let facilitator: x402Facilitator = createX402Facilitator(["eip155:84532", "eip155:1328", "eip155:80002"], evmAccount);
+    let facilitator: x402Facilitator = createX402Facilitator([
+      "eip155:84532",
+      "eip155:1328",
+      "eip155:80002",
+      "stellar:testnet"
+    ], facilitatorSigners);
     const response = facilitator.getSupported();
     res.json(response);
   } catch (error) {

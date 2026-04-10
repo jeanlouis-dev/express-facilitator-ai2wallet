@@ -1,13 +1,13 @@
-# x402 Facilitator Example
+# Ai2Wallet x402 Facilitator Example
 
 Express.js facilitator service that verifies and settles payments on-chain for the x402 protocol.
 
 ## Prerequisites
 
 - Node.js v20+ (install via [nvm](https://github.com/nvm-sh/nvm))
-- pnpm v10 (install via [pnpm.io/installation](https://pnpm.io/installation))
-- EVM private key with Base Sepolia ETH for transaction fees
+- EVM private key with some Testnet native tokens for transaction fees
 - SVM private key with Solana Devnet SOL for transaction fees
+- STELLAR private key for transaction
 
 ## Setup
 
@@ -21,194 +21,51 @@ and fill required environment variables:
 
 - `EVM_PRIVATE_KEY` - Ethereum private key
 - `SVM_PRIVATE_KEY` - Solana private key
+- `STELLAR_PRIVATE_KEY` - Stellar private key
 - `PORT` - Server port (optional, defaults to 4022)
 
 2. Install and build all packages from the typescript examples root:
 
 ```bash
-cd ../../
-pnpm install && pnpm build
-cd facilitator
+cd express-facilitator-ai2wallet
+npm install
 ```
 
 3. Run the server:
 
 ```bash
-pnpm dev
+npm run dev
 ```
-
-## API Endpoints
-
-### GET /supported
-
-Returns payment schemes and networks this facilitator supports.
-
-```json
-{
-  "kinds": [
-    {
-      "x402Version": 2,
-      "scheme": "exact",
-      "network": "eip155:84532"
-    },
-    {
-      "x402Version": 2,
-      "scheme": "exact",
-      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-      "extra": {
-        "feePayer": "..."
-      }
-    }
-  ],
-  "extensions": [],
-  "signers": {
-    "eip155": ["0x..."],
-    "solana": ["..."]
-  }
-}
-```
-
-### POST /verify
-
-Verifies a payment payload against requirements before settlement.
-
-Request:
-
-```json
-{
-  "paymentPayload": {
-    "x402Version": 2,
-    "resource": {
-      "url": "http://localhost:4021/weather",
-      "description": "Weather data",
-      "mimeType": "application/json"
-    },
-    "accepted": {
-      "scheme": "exact",
-      "network": "eip155:84532",
-      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-      "amount": "1000",
-      "payTo": "0x...",
-      "maxTimeoutSeconds": 300,
-      "extra": {
-        "name": "USDC",
-        "version": "2"
-      }
-    },
-    "payload": {
-      "signature": "0x...",
-      "authorization": {}
-    }
-  },
-  "paymentRequirements": {
-    "scheme": "exact",
-    "network": "eip155:84532",
-    "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-    "amount": "1000",
-    "payTo": "0x...",
-    "maxTimeoutSeconds": 300,
-    "extra": {
-      "name": "USDC",
-      "version": "2"
-    }
-  }
-}
-```
-
-Response (success):
-
-```json
-{
-  "isValid": true,
-  "payer": "0x..."
-}
-```
-
-Response (failure):
-
-```json
-{
-  "isValid": false,
-  "invalidReason": "invalid_signature"
-}
-```
-
-### POST /settle
-
-Settles a verified payment by broadcasting the transaction on-chain.
-
-Request body is identical to `/verify`.
-
-Response (success):
-
-```json
-{
-  "success": true,
-  "transaction": "0x...",
-  "network": "eip155:84532",
-  "payer": "0x..."
-}
-```
-
-Response (failure):
-
-```json
-{
-  "success": false,
-  "errorReason": "insufficient_balance",
-  "transaction": "",
-  "network": "eip155:84532"
-}
-```
-
-## Extending the Example
-
-### Adding Networks
-
-Register additional schemes for other networks:
+## Create Facilitator Client
 
 ```typescript
-import { registerExactEvmScheme } from "@x402/evm/exact/facilitator";
-import { registerExactSvmScheme } from "@x402/svm/exact/facilitator";
-
-const facilitator = new x402Facilitator();
-
-registerExactEvmScheme(facilitator, {
-  signer: evmSigner,
-  networks: "eip155:84532",
-});
-
-registerExactSvmScheme(facilitator, {
-  signer: svmSigner,
-  networks: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-});
+import {  createX402Facilitator } from "ai2wallet-sdk/facilitator";
+/**
+ * POST /verify
+ * POST /settle
+ */
+  let facilitator: x402Facilitator = createX402Facilitator(
+    [paymentRequirements.network],
+    facilitatorSigners
+  );
 ```
 
-### Lifecycle Hooks
-
-Add custom logic before/after verify and settle operations:
+## Register supported networks
 
 ```typescript
-const facilitator = new x402Facilitator()
-  .onBeforeVerify(async (context) => {
-    // Log or validate before verification
-  })
-  .onAfterVerify(async (context) => {
-    // Track verified payments
-  })
-  .onVerifyFailure(async (context) => {
-    // Handle verification failures
-  })
-  .onBeforeSettle(async (context) => {
-    // Validate before settlement
-    // Return { abort: true, reason: "..." } to cancel
-  })
-  .onAfterSettle(async (context) => {
-    // Track successful settlements
-  })
-  .onSettleFailure(async (context) => {
-    // Handle settlement failures
-  });
+import {  createX402Facilitator } from "ai2wallet-sdk/facilitator";
+/**
+ * GET /supported
+ * Get supported payment kinds and extensions
+ */
+app.get("/supported", async (req, res) => {
+  let facilitator: x402Facilitator = createX402Facilitator([
+    "eip155:84532",
+    "eip155:1328",
+    "eip155:80002",
+    "stellar:testnet"
+    ], facilitatorSigners);
+});
 ```
 
 ## Network Identifiers
@@ -219,3 +76,9 @@ Networks use [CAIP-2](https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/cai
 - `eip155:8453` — Base Mainnet
 - `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` — Solana Devnet
 - `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` — Solana Mainnet
+- `eip155:1328` — Sei Testnet
+- `eip155:1329` — Sei Mainnet
+- `eip155:80002` — Polygon Amoy
+- `eip155:137` — Polygon Mainnet
+- `stellar:testnet` — Stellar Testnet
+- `stellar:pubnet` — Stellar Mainnet
