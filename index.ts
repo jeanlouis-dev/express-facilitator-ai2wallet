@@ -1,9 +1,6 @@
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
-import { privateKeyToAccount } from "viem/accounts";
-import { base58 } from "@scure/base";
-import { createKeyPairSignerFromBytes } from "@solana/kit";
 import {
   PaymentPayload,
   PaymentRequirements,
@@ -19,39 +16,16 @@ dotenv.config();
 // Configuration
 const PORT = process.env.PORT || "4022";
 
-//Validate required environment variables
-if (!process.env.EVM_PRIVATE_KEY) {
-  console.error("❌ EVM_PRIVATE_KEY environment variable is required");
-  process.exit(1);
-}
-
-if (!process.env.SVM_PRIVATE_KEY) {
-  console.error("❌ SVM_PRIVATE_KEY environment variable is required");
-  process.exit(1);
-}
-
 if (!process.env.STELLAR_PRIVATE_KEY) {
   console.error("❌ STELLAR_PRIVATE_KEY environment variable is required");
   process.exit(1);
 }
 
-// Initialize the EVM account from private key
-const evmAccount = privateKeyToAccount(
-  process.env.EVM_PRIVATE_KEY as `0x${string}`,
-) as any;
-console.info(`EVM Facilitator account: ${evmAccount.address}`);
-
-// Initialize the SVM account from private key
-// const svmAccount = await createKeyPairSignerFromBytes(
-//   base58.decode(process.env.SVM_PRIVATE_KEY as string),
-// );
-// console.info(`SVM Facilitator account: ${svmAccount.address}`);
-
 // Initialize the Stellar account from private key
  const stellarAccount = createEd25519Signer(process.env.STELLAR_PRIVATE_KEY);
  console.info(`STELLAR Facilitator account: ${stellarAccount.address}`);
 
- const facilitatorSigners = { evmAccount, stellarAccount };
+ const facilitatorSigners = { stellarAccount };
 
 // Initialize Express app
 const app = express();
@@ -156,9 +130,6 @@ app.post("/settle", async (req, res) => {
 app.get("/supported", async (req, res) => {
   try {
     let facilitator: x402Facilitator = createX402Facilitator([
-      "eip155:84532",
-      "eip155:1328",
-      "eip155:80002",
       "stellar:testnet"
     ], facilitatorSigners);
     const response = facilitator.getSupported();
