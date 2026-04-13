@@ -1,6 +1,6 @@
-# Ai2Wallet x402 Facilitator Example
+# x402 Express Facilitator Example
 
-Express.js facilitator service that verifies and settles payments on-chain for the x402 protocol.
+Express.js facilitator service on top of `ai2wallet-sdk` that verifies and settles payments on-chain for the x402 protocol.
 
 ## Prerequisites
 
